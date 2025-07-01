@@ -9,9 +9,8 @@ Create a virtual lab for users to run custom code remotely using the Model Conte
 📂 This repo has moved to base/base-mcp
 
 🚀 What This Lab Server Does
-🧠 Enables remote Python code execution through Claude AI
+🧠 Enables remote Python code execution through cline AI
 
-🔗 Connects with blockchain tools if needed
 
 🧪 Supports real-time lab scenarios (code evaluation, sandbox testing, etc.)
 
@@ -26,7 +25,7 @@ Ensure you have the following on your system:
 
 ✅ uv (virtual environment manager, via scoop or curl)
 
-✅ Access to Claude Desktop or Cursor (for testing)
+✅ Access to Claude Desktop or Cursor or cline (for testing)
 
 
 
@@ -75,24 +74,23 @@ You now have a remote code execution server listening for requests via MCP.
 🧪 MCP Client Configuration
 For Claude Desktop / Cursor, update your mcp_config.json:
 
-json
-Copy
-Edit
+
 {
   "mcpServers": {
     "lab-virtual": {
       "command": "python",
       "args": ["app.py"],
       "env": {
-        "COINBASE_API_KEY_NAME": "your_api_key_name",
         "COINBASE_API_PRIVATE_KEY": "your_private_key",
-        "SEED_PHRASE": "your seed phrase here"
+        "Baseurl": "your seed phrase here"
       },
       "disabled": false,
       "autoApprove": []
     }
   }
 }
+
+
 Replace the "env" values if you're integrating with blockchain functions; otherwise leave them empty for pure Python code execution.
 
 ✅ Available Tools (Prebuilt in MCP)
