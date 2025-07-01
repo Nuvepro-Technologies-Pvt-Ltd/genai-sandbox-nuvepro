@@ -33,42 +33,53 @@ Ensure you have the following on your system:
 1. Set up Python Environment
 Windows
 powershell
-Copy
-Edit
+<pre>
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+<pre>
+
+<pre>
 iwr -useb get.scoop.sh | iex
+<pre>
+<pre>
 scoop install python
+<pre>
+<pre>
 scoop install uv
-macOS/Linux
-bash
-Copy
-Edit
+<pre>
+
+
+<pre>
 curl -LsSf https://astral.sh/uv/install.sh | sh
+<pre>
+
 2. Clone the MCP Server Repo
-bash
-Copy
-Edit
+<pre>>
 git clone https://github.com/Nuvepro-Technologies-Pvt-Ltd/McpSever_Remote_code_execution.git
+<pre>
 cd McpSever_Remote_code_execution
+
 3. Set Up Virtual Environment
-bash
-Copy
-Edit
+
+<pre>
 python -m venv .venv
+<pre>
+<pre>
 .\.venv\Scripts\activate   # Windows
-# OR
+<pre>
+<pre>
 source .venv/bin/activate  # macOS/Linux
+<pre>
+
 4. Install Dependencies
-bash
-Copy
-Edit
+
+<pre>
 pip install fastmcp
-pip install -r requirements.txt
+<pre>
+
 5. Run the Server
-bash
-Copy
-Edit
+<pre>
 fastmcp run app.py
+<pre>
 You now have a remote code execution server listening for requests via MCP.
 
 🧪 MCP Client Configuration
@@ -107,11 +118,12 @@ get-address	Retrieves wallet address (optional usage)
 User Prompt:
 
 plaintext
-Copy
-Edit
+
 Run this Python code in my lab environment:
+<pre>
 def greet(name): return f"Hello, {name}"
 greet("Alice")
+<pre>
 Claude routes this to your MCP server and gets the result.
 
 💡 Recommendations for Lab Admins
