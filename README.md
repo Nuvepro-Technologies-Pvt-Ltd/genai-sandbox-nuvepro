@@ -90,29 +90,42 @@ For Claude Desktop / Cursor, update your mcp_config.json:
 
 <pre>
 {
-	"mcpServers": {
-		"CloudlabMcp": {
-			"command": "python",
-			"args": [
-				"app.py"
-			],
-			"env": {
-				"COINBASE_API_PRIVATE_KEY": "your_private_key",
-				"Baseurl": "your seed phrase here"
-			},
-			"disabled": false,
-			"autoApprove": []
-		}
-	}
+  "mcpServers": {
+    "CloudlabMcp": {
+      "disabled": false,
+      "timeout": 60,
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--with",
+        "fastmcp",
+        "python",
+        "%PROJECT_PATH%\\main.py"
+      ],
+      "env": {
+        "COINBASE_API_PRIVATE_KEY": "your_private_key",
+        "Baseurl": "your seed phrase here"
+      },
+      "autoApprove": []
+    }
+  }
 }
+
 
 </pre>
 
-
-Replace the "env" values if you're integrating with blockchain functions; otherwise leave them empty for pure Python code execution.
+Beofre start Mcp set path
+<pre>
+set PROJECT_PATH=D:\YourProject
+</pre>
+<pre>
+cline run CloudlabMcp
+</pre>
 
 ✅ Available Tools (Prebuilt in MCP)
-Tool	Description
+
+Tool Description
 execute_code	Executes user-provided Python code
 get-address	Retrieves wallet address (optional usage)
 
