@@ -55,7 +55,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 </pre>
 
 2. Clone the MCP Server Repo
-<pre>>
+<pre>
 git clone https://github.com/Nuvepro-Technologies-Pvt-Ltd/McpSever_Remote_code_execution.git
 </pre>
 cd McpSever_Remote_code_execution
