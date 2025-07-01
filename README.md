@@ -74,7 +74,26 @@ You now have a remote code execution server listening for requests via MCP.
 🧪 MCP Client Configuration
 For Claude Desktop / Cursor, update your mcp_config.json:
 
-<pre> { "mcpServers": { "lab-virtual": { "command": "python", "args": ["app.py"], "env": { "COINBASE_API_PRIVATE_KEY": "your_private_key", "Baseurl": "your seed phrase here" }, "disabled": false, "autoApprove": [] } } }  </pre>
+<pre> 
+
+{
+	"mcpServers": {
+		"lab-virtual": {
+			"command": "python",
+			"args": [
+				"app.py"
+			],
+			"env": {
+				"COINBASE_API_PRIVATE_KEY": "your_private_key",
+				"Baseurl": "your seed phrase here"
+			},
+			"disabled": false,
+			"autoApprove": []
+		}
+	}
+}
+
+</pre>
 
 
 Replace the "env" values if you're integrating with blockchain functions; otherwise leave them empty for pure Python code execution.
