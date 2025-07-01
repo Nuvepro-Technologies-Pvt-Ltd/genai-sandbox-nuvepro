@@ -5,7 +5,9 @@ Create a virtual lab for users to run custom code remotely using the Model Conte
 
 
 🔗 GitHub Repo
+<pre>
 📦 https://github.com/Nuvepro-Technologies-Pvt-Ltd/McpSever_Remote_code_execution.git
+</pre>
 📂 This repo has moved to base/base-mcp
 
 🚀 What This Lab Server Does
@@ -35,57 +37,57 @@ Windows
 powershell
 <pre>
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-<pre>
+</pre>
 
 <pre>
 iwr -useb get.scoop.sh | iex
-<pre>
+</pre>
 <pre>
 scoop install python
-<pre>
+</pre>
 <pre>
 scoop install uv
-<pre>
+</pre>
 
 
 <pre>
 curl -LsSf https://astral.sh/uv/install.sh | sh
-<pre>
+</pre>
 
 2. Clone the MCP Server Repo
 <pre>>
 git clone https://github.com/Nuvepro-Technologies-Pvt-Ltd/McpSever_Remote_code_execution.git
-<pre>
+</pre>
 cd McpSever_Remote_code_execution
 
 3. Set Up Virtual Environment
 
 <pre>
 python -m venv .venv
-<pre>
+</pre>
 <pre>
 .\.venv\Scripts\activate   # Windows
-<pre>
+</pre>
 <pre>
 source .venv/bin/activate  # macOS/Linux
-<pre>
+</pre>
 
 4. Install Dependencies
 
 <pre>
 pip install fastmcp
-<pre>
+</pre>
 
 5. Run the Server
 <pre>
 fastmcp run app.py
-<pre>
+</pre>
 You now have a remote code execution server listening for requests via MCP.
 
 🧪 MCP Client Configuration
 For Claude Desktop / Cursor, update your mcp_config.json:
 
-<pre> 
+</pre> 
 
 {
 	"mcpServers": {
@@ -123,7 +125,7 @@ Run this Python code in my lab environment:
 <pre>
 def greet(name): return f"Hello, {name}"
 greet("Alice")
-<pre>
+</pre>
 Claude routes this to your MCP server and gets the result.
 
 💡 Recommendations for Lab Admins
