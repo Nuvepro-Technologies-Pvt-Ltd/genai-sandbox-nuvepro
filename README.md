@@ -101,7 +101,7 @@ For Claude Desktop / Cursor, update your mcp_config.json:
         "--with",
         "fastmcp",
         "python",
-        "%PROJECT_PATH%\\main.py"
+        "%PROJECT_PATH%\\app.py"
       ],
       "env": {
         "API_KEY": "your_private_key",
