@@ -87,11 +87,11 @@ You now have a remote code execution server listening for requests via MCP.
 🧪 MCP Client Configuration
 For Claude Desktop / Cursor, update your mcp_config.json:
 
-</pre> 
 
+<pre>
 {
 	"mcpServers": {
-		"lab-virtual": {
+		"CloudlabMcp": {
 			"command": "python",
 			"args": [
 				"app.py"
