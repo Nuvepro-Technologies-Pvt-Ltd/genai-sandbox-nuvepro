@@ -136,7 +136,9 @@ plaintext
 
 Run this Python code in my lab environment:
 <pre>
-def greet(name): return f"Hello, {name}"
+def greet(name): 
+return f"Hello, {name}"
+
 greet("Alice")
 </pre>
 Claude routes this to your MCP server and gets the result.
