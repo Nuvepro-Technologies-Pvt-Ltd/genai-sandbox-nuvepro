@@ -104,7 +104,7 @@ For Claude Desktop / Cursor, update your mcp_config.json:
         "%PROJECT_PATH%\\main.py"
       ],
       "env": {
-        "COINBASE_API_PRIVATE_KEY": "your_private_key",
+        "API_KEY": "your_private_key",
         "Baseurl": "your seed phrase here"
       },
       "autoApprove": []
