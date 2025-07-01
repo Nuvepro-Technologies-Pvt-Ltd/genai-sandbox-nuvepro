@@ -1,22 +1,120 @@
+execution in a secure and scalable lab setup.
 
-MIT License
+⚙️ Lab Virtual MCP Server (Execute Code Remotely via Claude AI)
+Create a virtual lab for users to run custom code remotely using the Model Context Protocol (MCP) and integrate with Claude AI or other clients.
 
-Copyright (c) 2025 Cline
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+🔗 GitHub Repo
+📦 https://github.com/Nuvepro-Technologies-Pvt-Ltd/McpSever_Remote_code_execution.git
+📂 This repo has moved to base/base-mcp
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+🚀 What This Lab Server Does
+🧠 Enables remote Python code execution through Claude AI
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+🔗 Connects with blockchain tools if needed
+
+🧪 Supports real-time lab scenarios (code evaluation, sandbox testing, etc.)
+
+📋 Prerequisites
+Ensure you have the following on your system:
+
+✅ Python 3.10.11
+
+✅ pip (Python package manager)
+
+✅ fastmcp (to serve the MCP endpoint)
+
+✅ uv (virtual environment manager, via scoop or curl)
+
+✅ Access to Claude Desktop or Cursor (for testing)
+
+
+
+🧱 Installation Steps
+1. Set up Python Environment
+Windows
+powershell
+Copy
+Edit
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+iwr -useb get.scoop.sh | iex
+scoop install python
+scoop install uv
+macOS/Linux
+bash
+Copy
+Edit
+curl -LsSf https://astral.sh/uv/install.sh | sh
+2. Clone the MCP Server Repo
+bash
+Copy
+Edit
+git clone https://github.com/Nuvepro-Technologies-Pvt-Ltd/McpSever_Remote_code_execution.git
+cd McpSever_Remote_code_execution
+3. Set Up Virtual Environment
+bash
+Copy
+Edit
+python -m venv .venv
+.\.venv\Scripts\activate   # Windows
+# OR
+source .venv/bin/activate  # macOS/Linux
+4. Install Dependencies
+bash
+Copy
+Edit
+pip install fastmcp
+pip install -r requirements.txt
+5. Run the Server
+bash
+Copy
+Edit
+fastmcp run app.py
+You now have a remote code execution server listening for requests via MCP.
+
+🧪 MCP Client Configuration
+For Claude Desktop / Cursor, update your mcp_config.json:
+
+json
+Copy
+Edit
+{
+  "mcpServers": {
+    "lab-virtual": {
+      "command": "python",
+      "args": ["app.py"],
+      "env": {
+        "COINBASE_API_KEY_NAME": "your_api_key_name",
+        "COINBASE_API_PRIVATE_KEY": "your_private_key",
+        "SEED_PHRASE": "your seed phrase here"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+Replace the "env" values if you're integrating with blockchain functions; otherwise leave them empty for pure Python code execution.
+
+✅ Available Tools (Prebuilt in MCP)
+Tool	Description
+execute_code	Executes user-provided Python code
+get-address	Retrieves wallet address (optional usage)
+
+🧑‍🏫 Example Use in Claude
+User Prompt:
+
+plaintext
+Copy
+Edit
+Run this Python code in my lab environment:
+def greet(name): return f"Hello, {name}"
+greet("Alice")
+Claude routes this to your MCP server and gets the result.
+
+💡 Recommendations for Lab Admins
+✅ Add sandboxing logic to app.py if users can run arbitrary code.
+
+✅ Use Docker or subprocess isolation for safer execution (optional).
+
+✅ Monitor logs and set execution timeouts.
+
