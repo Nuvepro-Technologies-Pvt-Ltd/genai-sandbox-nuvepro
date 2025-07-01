@@ -1,0 +1,23 @@
+# Ignore virtual environments
+.venv/
+venv/
+
+# Bytecode and cache files
+__pycache__/
+*.py[cod]
+
+# Environment variables
+.env
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Compiled code
+*.so
+*.exe
+
+# Test cache
+.pytest_cache/
