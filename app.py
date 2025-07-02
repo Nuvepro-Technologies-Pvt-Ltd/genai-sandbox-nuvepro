@@ -13,16 +13,12 @@ from cryptography.hazmat.backends import default_backend
 
 mcp = FastMCP("CloudlabMcp")
 
-
 API_key = os.environ.get("API_KEY")
 BASE_URL = os.environ.get("Baseurl")
-
-
 
 @mcp.tool
 async def ping():
     return "pong"
-
 
 def generate_key(passphrase: str, salt: bytes) -> bytes:
     kdf = PBKDF2HMAC(
