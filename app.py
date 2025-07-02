@@ -1,25 +1,69 @@
 from fastmcp import FastMCP
 import asyncio
-
+import os
 import httpx
 import asyncio
 import json
 from typing import List, Union
+
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
+
 mcp = FastMCP("CloudlabMcp")
 
-BASE_URL="http://localhost:9999/";
-USERNAME = "devadmin2"
-PASSWORD = "RishAnk@7080"
+
+API_key = os.environ.get("API_KEY")
+BASE_URL = os.environ.get("Baseurl")
+
+
+
 @mcp.tool
 async def ping():
     return "pong"
 
+
+def generate_key(passphrase: str, salt: bytes) -> bytes:
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100_000,
+        backend=default_backend()
+    )
+    return kdf.derive(passphrase.encode())
+
+def decrypt_from_api_key(api_key: str, passphrase: str):
+    try:
+        salt_hex, nonce_hex, ciphertext_hex = api_key.split(".")
+        salt = bytes.fromhex(salt_hex)
+        nonce = bytes.fromhex(nonce_hex)
+        ciphertext = bytes.fromhex(ciphertext_hex)
+
+        key = generate_key(passphrase, salt)
+        aesgcm = AESGCM(key)
+
+        decrypted = aesgcm.decrypt(nonce, ciphertext, None)
+        creds = json.loads(decrypted.decode())
+        return creds["username"], creds["password"]
+
+    except Exception as e:
+        return {"error": f"Decryption failed: {str(e)}"}
 
 # Internal auth function (not exposed to user)
 async def _authenticate_cloudlab():
     headers = {
         "Content-Type": "application/x-www-form-urlencoded"
     }
+    
+    decrypted = decrypt_from_api_key(API_key, "MySuperSecretKey")
+    
+    if isinstance(decrypted, dict) and "error" in decrypted:
+        return decrypted  # Return error message
+
+    USERNAME, PASSWORD = decrypted
+
     payload = {
         "username": USERNAME,
         "password": PASSWORD
@@ -82,10 +126,10 @@ async def show_lab_deatils():
         
         
 @mcp.tool(
-    name="read_latest_generated_code_and_execute_code",
+    name="execute_code",
     description="Allows the user to choose a sandbox (Python or Java) and executes the latest code accordingly."
 )
-async def read_latest_generated_code_and_execute_code(latest_code: str, language: str = "python"):
+async def execute_code(latest_code: str, language: str = "python"):
     """
     Accepts latest generated code and executes it in a selected sandbox.
     
@@ -96,7 +140,7 @@ async def read_latest_generated_code_and_execute_code(latest_code: str, language
     Returns:
     - JSON with execution result.
     """
-    
+    ##  call this method and get show_lab_deatils check access details is there or not if there pic dns server value and create url https:{dnssvervalue}:8000
     # Map language to endpoint
     sandbox_urls = {
         "python": "http://winpydy7730f.cloudloka.com:8000/run_python_code",
@@ -142,81 +186,84 @@ async def read_latest_generated_code_and_execute_code(latest_code: str, language
             "message": f"Unexpected error: {str(e)}"
         }
 
-@mcp.tool()
-async def get_movie_basedon_name(movie_name: str) -> Union[List[dict], dict]:
-    """
-    Fetch all movies from the Movie Booking API and filter them by the provided movie name.
 
-    Args:
-        movie_name (str): Name (or partial name) of the movie to search for.
+@mcp.tool(
+    name="execute_code_from_file",
+    description="Reads code from a file and executes it in a remote sandbox (Python or Java)."
+)
+async def execute_code_from_file(file_path: str, language: str = "python"):
+    """
+    Reads the content of a code file and executes it remotely.
+
+    Parameters:
+    - file_path: str = Path to the code file (local path).
+    - language: str = "python" or "java" (default: python)
 
     Returns:
-        List of matching movies or an error message.
+    - JSON with execution result or error message.
     """
-    url = "https://d8ad-223-185-135-56.ngrok-free.app/api/movies"
+    # Validate file existence
+    if not os.path.isfile(file_path):
+        return {
+            "status": "error",
+            "message": f"File not found: {file_path}"
+        }
 
-    async with httpx.AsyncClient() as client:
-        try:
-           
-            response = await client.get(url)
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            code = f.read()
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to read file: {str(e)}"
+        }
+
+    # Map language to endpoint
+    sandbox_urls = {
+        "python": "http://winpydy7730f.cloudloka.com:8000/run_python_code",
+        "java": "http://winpydy7730f.cloudloka.com:8000/run_java_code"
+    }
+
+    if language.lower() not in sandbox_urls:
+        return {
+            "status": "error",
+            "message": f"Unsupported language '{language}'. Please use 'python' or 'java'."
+        }
+
+    url = sandbox_urls[language.lower()]
+    headers = {"Content-Type": "application/json"}
+    payload = {"code": code}
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=payload)
             response.raise_for_status()
+            result = response.json()
 
-            movies = response.json()
+        return {
+            "status": "success",
+            "language": language.lower(),
+            "message": "File code executed successfully.",
+            "result": result
+        }
 
-            # Log the raw response to inspect structure
-           
+    except httpx.RequestError as exc:
+        return {
+            "status": "error",
+            "message": f"Request error: {str(exc)}"
+        }
+    except httpx.HTTPStatusError as exc:
+        return {
+            "status": "error",
+            "message": f"HTTP error {exc.response.status_code}: {exc.response.text}"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Unexpected error: {str(e)}"
+        }
 
-            # Handle if wrapped in "data" or other keys
-            if isinstance(movies, dict):
-                if "data" in movies:
-                    movies = movies["data"]
-                elif "movies" in movies:
-                    movies = movies["movies"]
-                else:
-                   
-                    return {"error": "Unexpected API structure: no 'data' or 'movies' key."}
 
-            if not isinstance(movies, list):
-                
-                return {"error": "Expected a list of movies but got something else."}
-
-            # Detect actual title key
-            sample_movie = movies[0] if movies else {}
-            movie_key = None
-            for key in ["movieName", "title", "name"]:
-                if key in sample_movie:
-                    movie_key = key
-                    break
-
-            if not movie_key:
-                
-                return {"error": "Could not detect movie title key in API response."}
-
-           
-
-            # Case-insensitive filter
-            movie_name = movie_name.strip().lower()
-            filtered_movies = [
-                movie for movie in movies
-                if movie_name in movie.get(movie_key, "").lower()
-            ]
-
-            if not filtered_movies:
-                
-                return {"message": f"No movies found with name containing '{movie_name}'."}
-
-            
-            return filtered_movies
-
-        except httpx.RequestError as exc:
-           
-            return {"error": f"Request error: {str(exc)}"}
-        except httpx.HTTPStatusError as exc:
-           
-            return {"error": f"HTTP error: {exc.response.status_code} - {exc.response.text}"}
-        except Exception as e:
-            
-            return {"error": f"Unexpected error: {str(e)}"}
 
 if __name__ == "__main__":
     asyncio.run(mcp.run())
