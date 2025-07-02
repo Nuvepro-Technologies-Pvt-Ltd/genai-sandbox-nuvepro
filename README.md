@@ -3,7 +3,7 @@ execution in a secure and scalable lab setup.
 ⚙️ Lab Virtual MCP Server (Execute Code Remotely via Claude AI)
 Create a virtual lab for users to run custom code remotely using the Model Context Protocol (MCP) and integrate with Claude AI or other clients.
 
- ![video](video/test.mp4). Make sure to replace 'your-video-url.mp4' 
+ ![video](video/test.mp4). Make sure to replace 'video/test.mp4' 
 
 
 
