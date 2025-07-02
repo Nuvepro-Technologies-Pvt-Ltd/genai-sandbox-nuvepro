@@ -39,25 +39,17 @@ git clone https://github.com/Nuvepro-Technologies-Pvt-Ltd/McpSever_Remote_code_e
 </pre>
 
 2. Set up Python Environment
-Windows
-powershell
+
 <pre>
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 </pre>
 
 <pre>
-iwr -useb get.scoop.sh | iex
-</pre>
-<pre>
 scoop install python
 </pre>
+
 <pre>
 scoop install uv
-</pre>
-
-
-<pre>
-curl -LsSf https://astral.sh/uv/install.sh | sh
 </pre>
 
 
