@@ -16,6 +16,7 @@ mcp = FastMCP("CloudlabMcp")
 API_key = os.environ.get("API_KEY")
 BASE_URL = os.environ.get("Baseurl")
 
+
 @mcp.tool
 async def ping():
     return "pong"
@@ -140,7 +141,6 @@ async def execute_code(latest_code: str, language: str = "python"):
     # Map language to endpoint
     sandbox_urls = {
         "python": "http://winpydy7730f.cloudloka.com:8000/run_python_code",
-        "java": "http://winpydy7730f.cloudloka.com:8000/run_java_code"
     }
 
     if language.lower() not in sandbox_urls:
@@ -183,48 +183,124 @@ async def execute_code(latest_code: str, language: str = "python"):
         }
 
 
+# @mcp.tool(
+#     name="execute_code",
+#     description="Prompts user to confirm before executing latest code in Python or Java sandbox."
+# )
+# async def execute_code(latest_code: str, language: str = "python"):
+#     """
+#     Prompts the user to confirm before executing the latest code.
+
+#     Parameters:
+#     - latest_code: str = The code to be executed.
+#     - language: str = "python" or "java" (default: python)
+
+#     Returns:
+#     - JSON with execution result or cancellation.
+#     """
+
+#     # Ask user for confirmation before running
+#     confirmation = await mcp.ask_user(
+#         prompt="🚀 Do you want to execute the latest code?",
+#         options=["Run", "Cancel"]
+#     )
+
+#     if confirmation != "Run":
+#         return {
+#             "status": "cancelled",
+#             "message": "Execution cancelled by the user."
+#         }
+
+#     # OPTIONAL: Placeholder to fetch dynamic DNS or check access (can be replaced)
+#     dns_server_value = "winpydy7730f.cloudloka.com"
+#     url = f"http://{dns_server_value}:8000/run_python_code"
+
+#     headers = {"Content-Type": "application/json"}
+#     payload = {"code": latest_code}
+
+#     try:
+#         async with httpx.AsyncClient() as client:
+#             response = await client.post(url, headers=headers, json=payload)
+#             response.raise_for_status()
+#             result = response.json()
+
+#         return {
+#             "status": "success",
+#             "language": language.lower(),
+#             "message": "Code executed successfully.",
+#             "result": result
+#         }
+
+#     except httpx.RequestError as exc:
+#         return {
+#             "status": "error",
+#             "message": f"Request error: {str(exc)}"
+#         }
+#     except httpx.HTTPStatusError as exc:
+#         return {
+#             "status": "error",
+#             "message": f"HTTP error {exc.response.status_code}: {exc.response.text}"
+#         }
+#     except Exception as e:
+#         return {
+#             "status": "error",
+#             "message": f"Unexpected error: {str(e)}"
+#         }
+
+
+
 @mcp.tool(
-    name="execute_code_from_file",
-    description="Reads code from a file and executes it in a remote sandbox (Python or Java)."
+    name="execute_code_from_file_or_directory",
+    description="Executes Python or Java code from a file or directory. Auto-selects file if only one is found."
 )
-async def execute_code_from_file(file_path: str, language: str = "python"):
+async def execute_code_from_file_or_directory(path: str, language: str = "python", filename: str = None):
     """
-    Reads the content of a code file and executes it remotely.
-
-    Parameters:
-    - file_path: str = Path to the code file (local path).
-    - language: str = "python" or "java" (default: python)
-
-    Returns:
-    - JSON with execution result or error message.
+    Executes code from a file or picks from directory if only one file found.
+    Prompts user if multiple valid files are found.
     """
-    # Validate file existence
-    if not os.path.isfile(file_path):
-        return {
-            "status": "error",
-            "message": f"File not found: {file_path}"
-        }
+
+    if not os.path.exists(path):
+        return {"status": "error", "message": f"Path not found: {path}"}
+
+    # If it's a directory, handle accordingly
+    if os.path.isdir(path):
+        code_files = [f for f in os.listdir(path) if f.endswith(".py") or f.endswith(".java")]
+        
+        if not code_files:
+            return {"status": "error", "message": "No Python or Java files found in the directory."}
+        
+        # Auto-pick if only one file found
+        if len(code_files) == 1:
+            file_path = os.path.join(path, code_files[0])
+        else:
+            # Require user to specify which file
+            if not filename:
+                return {
+                    "status": "select_required",
+                    "message": f"Multiple code files found. Please specify the file to execute.",
+                    "available_files": code_files
+                }
+            file_path = os.path.join(path, filename)
+
+        if not os.path.isfile(file_path):
+            return {"status": "error", "message": f"File not found in directory: {filename}"}
+    else:
+        # It's a direct file
+        file_path = path
 
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             code = f.read()
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to read file: {str(e)}"
-        }
+        return {"status": "error", "message": f"Failed to read file: {str(e)}"}
 
-    # Map language to endpoint
     sandbox_urls = {
         "python": "http://winpydy7730f.cloudloka.com:8000/run_python_code",
         "java": "http://winpydy7730f.cloudloka.com:8000/run_java_code"
     }
 
     if language.lower() not in sandbox_urls:
-        return {
-            "status": "error",
-            "message": f"Unsupported language '{language}'. Please use 'python' or 'java'."
-        }
+        return {"status": "error", "message": f"Unsupported language '{language}'."}
 
     url = sandbox_urls[language.lower()]
     headers = {"Content-Type": "application/json"}
@@ -239,27 +315,96 @@ async def execute_code_from_file(file_path: str, language: str = "python"):
         return {
             "status": "success",
             "language": language.lower(),
-            "message": "File code executed successfully.",
+            "executed_file": os.path.basename(file_path),
+            "message": "Code executed successfully.",
             "result": result
         }
 
     except httpx.RequestError as exc:
-        return {
-            "status": "error",
-            "message": f"Request error: {str(exc)}"
-        }
+        return {"status": "error", "message": f"Request error: {str(exc)}"}
     except httpx.HTTPStatusError as exc:
-        return {
-            "status": "error",
-            "message": f"HTTP error {exc.response.status_code}: {exc.response.text}"
-        }
+        return {"status": "error", "message": f"HTTP error {exc.response.status_code}: {exc.response.text}"}
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Unexpected error: {str(e)}"
-        }
+        return {"status": "error", "message": f"Unexpected error: {str(e)}"}
 
 
+
+
+# @mcp.tool(
+#     name="execute_code_from_file",
+#     description="Reads code from a file and executes it in a remote sandbox (Python or Java)."
+# )
+# async def execute_code_from_file(file_path: str, language: str = "python"):
+#     """
+#     Reads the content of a code file and executes it remotely.
+
+#     Parameters:
+#     - file_path: str = Path to the code file (local path).
+#     - language: str = "python" or "java" (default: python)
+
+#     Returns:
+#     - JSON with execution result or error message.
+#     """
+#     # Validate file existence
+#     if not os.path.isfile(file_path):
+#         return {
+#             "status": "error",
+#             "message": f"File not found: {file_path}"
+#         }
+
+#     try:
+#         with open(file_path, "r", encoding="utf-8") as f:
+#             code = f.read()
+#     except Exception as e:
+#         return {
+#             "status": "error",
+#             "message": f"Failed to read file: {str(e)}"
+#         }
+
+#     # Map language to endpoint
+#     sandbox_urls = {
+#         "python": "http://winpydy7730f.cloudloka.com:8000/run_python_code",
+#         "java": "http://winpydy7730f.cloudloka.com:8000/run_java_code"
+#     }
+
+#     if language.lower() not in sandbox_urls:
+#         return {
+#             "status": "error",
+#             "message": f"Unsupported language '{language}'. Please use 'python' or 'java'."
+#         }
+
+#     url = sandbox_urls[language.lower()]
+#     headers = {"Content-Type": "application/json"}
+#     payload = {"code": code}
+
+#     try:
+#         async with httpx.AsyncClient() as client:
+#             response = await client.post(url, headers=headers, json=payload)
+#             response.raise_for_status()
+#             result = response.json()
+
+#         return {
+#             "status": "success",
+#             "language": language.lower(),
+#             "message": "File code executed successfully.",
+#             "result": result
+#         }
+
+#     except httpx.RequestError as exc:
+#         return {
+#             "status": "error",
+#             "message": f"Request error: {str(exc)}"
+#         }
+#     except httpx.HTTPStatusError as exc:
+#         return {
+#             "status": "error",
+#             "message": f"HTTP error {exc.response.status_code}: {exc.response.text}"
+#         }
+#     except Exception as e:
+#         return {
+#             "status": "error",
+#             "message": f"Unexpected error: {str(e)}"
+#         }
 
 if __name__ == "__main__":
     asyncio.run(mcp.run())
