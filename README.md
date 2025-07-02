@@ -73,6 +73,10 @@ source .venv/bin/activate  # macOS/Linux
 pip install fastmcp
 </pre>
 
+<pre>
+pip install cryptography
+</pre>
+
 5. Run the Server
 <pre>
 fastmcp run app.py
