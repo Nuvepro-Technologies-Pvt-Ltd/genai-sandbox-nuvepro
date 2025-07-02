@@ -32,7 +32,13 @@ Ensure you have the following on your system:
 
 
 🧱 Installation Steps
-1. Set up Python Environment
+
+1. Clone the MCP Server Repo
+<pre>
+git clone https://github.com/Nuvepro-Technologies-Pvt-Ltd/McpSever_Remote_code_execution.git
+</pre>
+
+2. Set up Python Environment
 Windows
 powershell
 <pre>
@@ -54,10 +60,7 @@ scoop install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 </pre>
 
-2. Clone the MCP Server Repo
-<pre>
-git clone https://github.com/Nuvepro-Technologies-Pvt-Ltd/McpSever_Remote_code_execution.git
-</pre>
+
 cd McpSever_Remote_code_execution
 
 3. Set Up Virtual Environment
