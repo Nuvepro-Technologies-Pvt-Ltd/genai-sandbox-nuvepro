@@ -5,6 +5,7 @@ Create a virtual lab for users to run custom code remotely using the Model Conte
 
  ![video](video/test.gif) 
 
+<img src="video/test.gif" alt="description" height="300" />
 
 
 🔗 GitHub Repo
