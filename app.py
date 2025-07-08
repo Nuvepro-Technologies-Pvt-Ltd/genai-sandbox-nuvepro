@@ -25,22 +25,6 @@ teamId = os.environ.get("teamId")
 
 
 
-@mcp.tool()
-def get_env_values() -> dict:
-    """
-    Returns the environment variables set in the MCP config.
-    """
-    if API_key and BASE_URL and planId and companyId and teamId:
-        return {
-            "private_key": API_key,
-            "base_url": API_key,
-            "planId" : planId,
-            "companyId" : companyId,
-            "teamId" : teamId
-        }
-    else:
-        return {"error": "Missing environment variables."}
-
 def generate_random_email(domain="cloudlab.com"):
     name = ''.join(random.choices(string.ascii_lowercase, k=7))
     number = str(random.randint(100, 999))
