@@ -4,7 +4,10 @@ import os
 import httpx
 import asyncio
 import json
+import random
+import string
 from typing import List, Union
+
 
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -15,7 +18,33 @@ mcp = FastMCP("CloudlabMcp")
 
 API_key = os.environ.get("API_KEY")
 BASE_URL = os.environ.get("Baseurl")
+planId = os.environ.get("planId")
+companyId = os.environ.get("companyId")
+teamId = os.environ.get("teamId")
 
+
+
+
+@mcp.tool()
+def get_env_values() -> dict:
+    """
+    Returns the environment variables set in the MCP config.
+    """
+    if API_key and BASE_URL and planId and companyId and teamId:
+        return {
+            "private_key": API_key,
+            "base_url": API_key,
+            "planId" : planId,
+            "companyId" : companyId,
+            "teamId" : teamId
+        }
+    else:
+        return {"error": "Missing environment variables."}
+
+def generate_random_email(domain="cloudlab.com"):
+    name = ''.join(random.choices(string.ascii_lowercase, k=7))
+    number = str(random.randint(100, 999))
+    return f"{name}{number}@{domain}"
 
 @mcp.tool
 async def ping():
@@ -85,6 +114,94 @@ async def _authenticate_cloudlab():
             return {"error": f"HTTP error: {exc.response.status_code} - {exc.response.text}"}
 
 
+# Create user
+import httpx
+
+async def _createuser(cookies, headers, userEmailId):
+   
+    userEmailId = generate_random_email()
+    payload = {
+        "userName": userEmailId,
+        "password": "Welcome123$",
+        "firstName": "redirectlabtestfn",
+        "lastName": "redirectlabtestln",
+        "companyId": companyId,
+        "teamId": teamId
+    }
+
+    CREATE_USER_URL = f"{BASE_URL}v1/users"
+
+    async with httpx.AsyncClient(verify=False) as client:
+        try:
+            response = await client.post(
+                CREATE_USER_URL,
+                headers=headers,
+                data=payload,
+                cookies=cookies
+            )
+            response.raise_for_status()
+            result = response.json()
+            user_id = result.get("userId")
+
+            if not user_id:
+                print("❌ User ID not found in response.")
+                return None
+
+            print(f"✅ User created with ID: {user_id}")
+            return result
+
+        except httpx.HTTPStatusError as e:
+            print(f"🚨 HTTP error: {e.response.status_code} - {e.response.text}")
+        except Exception as e:
+            print(f"⚠️ Unexpected error: {str(e)}")
+
+    return None
+
+
+
+
+# Create lab 
+async def _createlab(cookies, headers):
+    
+    userEmailId=_createuser(cookies, headers)
+    payload = {
+        "planId": planId,
+        "userName": userEmailId,
+        "companyId": companyId,
+        "teamId": teamId
+    }
+
+    CREATE_LAB_URL = f"{BASE_URL}v1/subscriptions"
+
+    async with httpx.AsyncClient(verify=False) as client:
+        try:
+            response = await client.post(
+                CREATE_LAB_URL,
+                headers=headers,
+                data=payload,  # fixed variable name
+                cookies=cookies
+            )
+            response.raise_for_status()
+            result = response.json()
+            subscriptionId = result.get("subscriptionId")
+
+            if not subscriptionId:
+                print("❌ Subscription ID not found in response.")
+                return None
+
+            print(f"✅ Subscription created with ID: {subscriptionId}")
+            return result
+
+        except httpx.HTTPStatusError as e:
+            print(f"🚨 HTTP error occurred: {e.response.status_code} - {e.response.text}")
+        except Exception as e:
+            print(f"⚠️ Other error: {str(e)}")
+
+    return None
+
+
+
+
 @mcp.tool(name="show_lab_deatils", description="Fetches Cloudlab lab details using authenticated session.")
 async def show_lab_deatils():
     auth_data = await _authenticate_cloudlab()
@@ -98,12 +215,17 @@ async def show_lab_deatils():
 
     if not all([session_name, sessid, csrf_token]):
         return {"status": "failed", "error": "Missing authentication values."}
+    
+      
 
     cookies = {session_name: sessid}
     headers = {
         "X-CSRF-Token": csrf_token,
         "Content-Type": "application/x-www-form-urlencoded"
     }
+    
+    # Create lab details request
+    create_lab = await _createlab(cookies,headers)
 
     lab_details_url = f"{BASE_URL}v1/subscriptions/launch"
     payload = {"subscriptionId": 731}
