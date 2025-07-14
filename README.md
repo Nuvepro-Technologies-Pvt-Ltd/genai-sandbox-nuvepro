@@ -129,15 +129,7 @@ cline run CloudlabMcp
 
 Tool Description
 execute_code	Executes user-provided Python code
-get-address	Retrieves wallet address (optional usage)
 
-🧑‍🏫 Example Use in Claude
-User Prompt:
-
-
-
-
-Claude routes this to your MCP server and gets the result.
 
 💡 Recommendations for Lab Admins
 ✅ Add sandboxing logic to app.py if users can run arbitrary code.
