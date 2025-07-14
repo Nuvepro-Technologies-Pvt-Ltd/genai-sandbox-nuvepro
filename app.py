@@ -1,38 +1,35 @@
 from fastmcp import FastMCP
-import asyncio
-import os
-import httpx
-import asyncio
-import json
 import random
 import string
-from typing import List, Union
+import asyncio
+import os
+import json
+import sys
+import httpx
+import sys
+import io
+import re
+import shelve
+import uuid
+from typing import Optional
+import os
 
-
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 
+# Create an MCP server
 mcp = FastMCP("CloudlabMcp")
 
+# Read for property file
 API_key = os.environ.get("API_KEY")
 BASE_URL = os.environ.get("Baseurl")
-planId = os.environ.get("planId")
-companyId = os.environ.get("companyId")
-teamId = os.environ.get("teamId")
+SESSION_DB_PATH = os.path.join("data", "session_store")
 
-
-
-
-def generate_random_email(domain="cloudlab.com"):
-    name = ''.join(random.choices(string.ascii_lowercase, k=7))
-    number = str(random.randint(100, 999))
-    return f"{name}{number}@{domain}"
-
-@mcp.tool
-async def ping():
-    return "pong"
+# Simulated in-memory session store
+session_store = {}
 
 def generate_key(passphrase: str, salt: bytes) -> bytes:
     kdf = PBKDF2HMAC(
@@ -61,13 +58,65 @@ def decrypt_from_api_key(api_key: str, passphrase: str):
     except Exception as e:
         return {"error": f"Decryption failed: {str(e)}"}
 
+
+# ✅ Utility: Detect language from code string
+def detect_language(code: str) -> str:
+    code = code.strip()
+    if code.startswith("def ") or "import " in code:
+        return "python"
+    elif "console.log" in code or "function(" in code:
+        return "javascript"
+    elif "#include" in code or "int main()" in code:
+        return "cpp"
+    elif "public class" in code or "System.out.println" in code:
+        return "java"
+    else:
+        return "unknown"  # fallback
+
+
+# ✅ Internal helper method
+def create_lab_session(useremailid: str) -> str:
+    """
+    Creates a new session if one doesn't exist and returns the generated username.
+    """
+    if useremailid not in session_store:
+        generated_username = generate_admin_email()
+        session_store[useremailid] = {
+            "username": generated_username
+        }
+    else:
+        generated_username = session_store[useremailid]["username"]
+
+    return generated_username
+
+
+# ✅ generaye default email id 
+def generate_admin_email() -> str:
+    """Generate a unique admin email."""
+    return f"user_{uuid.uuid4().hex[:8]}@lab.nuvepro.com"
+
+def create_lab_sessionInfo() -> str:
+    os.makedirs("data", exist_ok=True)
+    with shelve.open(SESSION_DB_PATH) as session_store:
+        # ✅ If any user is already stored, return their username
+        if session_store:
+            first_key = next(iter(session_store))
+            return session_store[first_key]["username"]
+        
+        # ❌ No users stored yet, create one
+        generated_username = generate_admin_email()
+        unique_key = str(uuid.uuid4())  # Random unique ID as key
+        session_store[unique_key] = {"username": generated_username}
+        return generated_username
+
+
 # Internal auth function (not exposed to user)
 async def _authenticate_cloudlab():
     headers = {
         "Content-Type": "application/x-www-form-urlencoded"
     }
     
-    decrypted = decrypt_from_api_key(API_key, "MySuperSecretKey")
+    decrypted =  decrypt_from_api_key(API_key, "MySuperSecretKey")
     
     if isinstance(decrypted, dict) and "error" in decrypted:
         return decrypted  # Return error message
@@ -98,12 +147,32 @@ async def _authenticate_cloudlab():
             return {"error": f"HTTP error: {exc.response.status_code} - {exc.response.text}"}
 
 
-# Create user
-import httpx
+# ✅ Get subscription plan details based on sandbox (language)
+async def _get_subscription_info(cookies, headers, sandbox: str):
+    #url = "http://localhost:8081/nuvelink/rest/v1/nlSubscription/getVmCatalog/"
 
-async def _createuser(cookies, headers, userEmailId):
-   
-    userEmailId = generate_random_email()
+    #payload = {'sandbox': sandbox}
+
+    #async with httpx.AsyncClient(verify=False) as client:
+     #   try:
+      #      response = await client.get(url)
+       #     response.raise_for_status()
+        #    data = response.json()
+
+            # if not all(k in data for k in ("companyId", "teamId", "planId")):
+            #     return {"error": "Missing required fields in subscription info response"}
+
+    return {
+                "companyId": 13,
+                "teamId": 124,
+                "planId": 202
+        }
+
+        # except Exception as e:
+        #     return {"error": f"Failed to get subscription info: {str(e)}"}
+
+# ✅ Updated user creation accepting team/company
+async def _createuser(cookies, headers, userEmailId: str, companyId: str, teamId: str):
     payload = {
         "userName": userEmailId,
         "password": "Welcome123$",
@@ -117,77 +186,27 @@ async def _createuser(cookies, headers, userEmailId):
 
     async with httpx.AsyncClient(verify=False) as client:
         try:
-            response = await client.post(
-                CREATE_USER_URL,
-                headers=headers,
-                data=payload,
-                cookies=cookies
-            )
-            response.raise_for_status()
+            response = await client.post(CREATE_USER_URL,headers=headers,data=payload,cookies=cookies)
             result = response.json()
-            user_id = result.get("userId")
-
-            if not user_id:
-                print("❌ User ID not found in response.")
-                return None
-
-            print(f"✅ User created with ID: {user_id}")
-            return result
-
+        
+            print("✅ User created successfully!")
+            return {
+                    "status": "created",
+                    "result": result
+                    }  
         except httpx.HTTPStatusError as e:
             print(f"🚨 HTTP error: {e.response.status_code} - {e.response.text}")
+            return {"status": "failed", "error": f"HTTP error: {e.response.status_code}"}
         except Exception as e:
             print(f"⚠️ Unexpected error: {str(e)}")
-
-    return None
-
+            return {"status": "failed", "error": str(e)}
 
 
 
-# Create lab 
-async def _createlab(cookies, headers):
+
+# ✅ Handle creation logic (e.g. log, print, or prep something)
+async def _create_lab(username: str ,detected_lang:str) -> dict:
     
-    userEmailId=_createuser(cookies, headers)
-    payload = {
-        "planId": planId,
-        "userName": userEmailId,
-        "companyId": companyId,
-        "teamId": teamId
-    }
-
-    CREATE_LAB_URL = f"{BASE_URL}v1/subscriptions"
-
-    async with httpx.AsyncClient(verify=False) as client:
-        try:
-            response = await client.post(
-                CREATE_LAB_URL,
-                headers=headers,
-                data=payload,  # fixed variable name
-                cookies=cookies
-            )
-            response.raise_for_status()
-            result = response.json()
-            subscriptionId = result.get("subscriptionId")
-
-            if not subscriptionId:
-                print("❌ Subscription ID not found in response.")
-                return None
-
-            print(f"✅ Subscription created with ID: {subscriptionId}")
-            return result
-
-        except httpx.HTTPStatusError as e:
-            print(f"🚨 HTTP error occurred: {e.response.status_code} - {e.response.text}")
-        except Exception as e:
-            print(f"⚠️ Other error: {str(e)}")
-
-    return None
-
-
-
-
-@mcp.tool(name="show_lab_deatils", description="Fetches Cloudlab lab details using authenticated session.")
-async def show_lab_deatils():
     auth_data = await _authenticate_cloudlab()
 
     if "error" in auth_data:
@@ -199,75 +218,120 @@ async def show_lab_deatils():
 
     if not all([session_name, sessid, csrf_token]):
         return {"status": "failed", "error": "Missing authentication values."}
-    
-      
 
     cookies = {session_name: sessid}
     headers = {
         "X-CSRF-Token": csrf_token,
         "Content-Type": "application/x-www-form-urlencoded"
     }
+     
+
+    #✅ Get plan/team/company info for selected sandbox type
+    subscription_info = await _get_subscription_info(cookies, headers, detected_lang)
+
+    if "error" in subscription_info:
+        return {"status": "failed", "error": subscription_info["error"]}
+
+    companyId = subscription_info["companyId"]
+    teamId = subscription_info["teamId"]
+    planId = subscription_info["planId"]
+
+    if not all([companyId, teamId, planId]):
+        return {"status": "failed", "error": "Missing required subscription info."} 
     
-    # Create lab details request
-    create_lab = await _createlab(cookies,headers)
-
-    lab_details_url = f"{BASE_URL}v1/subscriptions/launch"
-    payload = {"subscriptionId": 731}
-
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(lab_details_url, headers=headers, data=payload, cookies=cookies)
-            response.raise_for_status()
-            lab_details = response.json()
-            return {"status": "success", "data": lab_details}
-        except httpx.RequestError as exc:
-            print(f"[LAB REQUEST ERROR] {str(exc)}", file=sys.stderr)
-            return {"status": "failed", "error": f"Request error: {str(exc)}"}
-        except httpx.HTTPStatusError as exc:
-            print(f"[LAB HTTP ERROR] {exc.response.status_code}: {exc.response.text}", file=sys.stderr)
-            return {"status": "failed", "error": f"HTTP error {exc.response.status_code}: {exc.response.text}"}
-        
-        
-@mcp.tool(
-    name="execute_code",
-    description="Allows the user to choose a sandbox (Python or Java) and executes the latest code accordingly."
-)
-async def execute_code(latest_code: str, language: str = "python"):
-    """
-    Accepts latest generated code and executes it in a selected sandbox.
+     #✅ Create user (or detect existing)
+    user_result = await _createuser(cookies, headers, username, companyId, teamId)
+    if user_result is None or "status" not in user_result:
+        return {"status": "failed", "error": "User creation failed or incomplete."}
     
-    Parameters:
-    - latest_code: str = The code to be executed.
-    - language: str = "python" or "java" (default: python)
-
-    Returns:
-    - JSON with execution result.
-    """
-    ##  call this method and get show_lab_deatils check access details is there or not if there pic dns server value and create url https:{dnssvervalue}:8000
-    # Map language to endpoint
-    sandbox_urls = {
-        "python": "http://winpydy7730f.cloudloka.com:8000/run_python_code",
+    
+    # Step 4: Create lab (or handle "Lab already exists")
+    
+     #Step 3: Create or reuse lab
+    CREATE_LAB_URL = f"{BASE_URL}v1/subscriptions"
+    payload = {
+        "planId": planId,
+        "userName": username,
+        "companyId": companyId,
+        "teamId": teamId
     }
 
-    if language.lower() not in sandbox_urls:
-        return {
-            "status": "error",
-            "message": f"Unsupported language '{language}'. Please choose 'python' or 'java'."
-        }
+    subscription_id = None
 
-    url = sandbox_urls[language.lower()]
+    async with httpx.AsyncClient(verify=False) as client:
+        try:
+            response = await client.post(
+                CREATE_LAB_URL,
+                headers=headers,
+                data=payload,
+                cookies=cookies
+            )
+            result = response.json()
+
+            if result.get("MessageCode") == "1012":  # Lab already exists
+                subscription_ids = result.get("subscriptionIds", [])
+                if subscription_ids:
+                    subscription_id= subscription_ids[0]
+                else:
+                    return {"status": "failed", "error": "Lab exists but no subscription ID found."}
+            else:
+               subscription_id = result.get("subscriptionId")
+                
+        except httpx.HTTPStatusError as e:
+            return {"status": "failed", "error": f"HTTP error: {e.response.status_code} - {e.response.text}"}
+        except Exception as e:
+            return {"status": "failed", "error": f"Unexpected error: {str(e)}"}
+     
+    
+    
+      # Step 4: Retry launch until userAccess is available (max 6 mins)
+    LAUNCH_URL = f"{BASE_URL}v1/subscriptions/launch"
+    launch_payload = {"subscriptionId": subscription_id}
+
+    max_retries = 10
+    delay_between_retries = 60  # seconds
+    async with httpx.AsyncClient(verify=False) as client:
+        for attempt in range(1, max_retries + 1):
+            try:
+               print(f"⏳ Launch attempt {attempt}/{max_retries} for subscriptionId {subscription_id}")
+               launch_resp = await client.post(LAUNCH_URL,headers=headers,data=launch_payload,cookies=cookies)
+               launch_result = launch_resp.json()
+               user_access = launch_result.get("userAccess")
+               if user_access:
+                   print("✅ User access available!")
+                   return {
+                       "userAccess": user_access,
+                   }
+
+               print("⚠️ Lab not ready yet. Retrying in 60 seconds...")
+               await asyncio.sleep(delay_between_retries)
+            except Exception as e:
+               print(f"⚠️ Error during launch attempt {attempt}: {str(e)}")
+               await asyncio.sleep(delay_between_retries)
+        
+
+async def handle_code_execution(payload: str) -> str:
+    host_id = "3.6.150.49"
+    username = create_lab_sessionInfo()
+    detected_lang = detect_language(payload)
+    user_access = await _create_lab(username, detected_lang)
+
+    return host_id     
+
+
+async def run_code_in_sandbox(host_id: str, code: str) -> dict:
+    url = f"http://{host_id}:8000/run_code"
     headers = {"Content-Type": "application/json"}
-    payload = {"code": latest_code}
+    payload = {"code": code}
 
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=payload)
             response.raise_for_status()
             result = response.json()
-
+        
         return {
             "status": "success",
-            "language": language.lower(),
             "message": "Code executed successfully.",
             "result": result
         }
@@ -277,11 +341,13 @@ async def execute_code(latest_code: str, language: str = "python"):
             "status": "error",
             "message": f"Request error: {str(exc)}"
         }
+
     except httpx.HTTPStatusError as exc:
         return {
             "status": "error",
             "message": f"HTTP error {exc.response.status_code}: {exc.response.text}"
         }
+
     except Exception as e:
         return {
             "status": "error",
@@ -289,228 +355,74 @@ async def execute_code(latest_code: str, language: str = "python"):
         }
 
 
-# @mcp.tool(
-#     name="execute_code",
-#     description="Prompts user to confirm before executing latest code in Python or Java sandbox."
-# )
-# async def execute_code(latest_code: str, language: str = "python"):
-#     """
-#     Prompts the user to confirm before executing the latest code.
-
-#     Parameters:
-#     - latest_code: str = The code to be executed.
-#     - language: str = "python" or "java" (default: python)
-
-#     Returns:
-#     - JSON with execution result or cancellation.
-#     """
-
-#     # Ask user for confirmation before running
-#     confirmation = await mcp.ask_user(
-#         prompt="🚀 Do you want to execute the latest code?",
-#         options=["Run", "Cancel"]
-#     )
-
-#     if confirmation != "Run":
-#         return {
-#             "status": "cancelled",
-#             "message": "Execution cancelled by the user."
-#         }
-
-#     # OPTIONAL: Placeholder to fetch dynamic DNS or check access (can be replaced)
-#     dns_server_value = "winpydy7730f.cloudloka.com"
-#     url = f"http://{dns_server_value}:8000/run_python_code"
-
-#     headers = {"Content-Type": "application/json"}
-#     payload = {"code": latest_code}
-
-#     try:
-#         async with httpx.AsyncClient() as client:
-#             response = await client.post(url, headers=headers, json=payload)
-#             response.raise_for_status()
-#             result = response.json()
-
-#         return {
-#             "status": "success",
-#             "language": language.lower(),
-#             "message": "Code executed successfully.",
-#             "result": result
-#         }
-
-#     except httpx.RequestError as exc:
-#         return {
-#             "status": "error",
-#             "message": f"Request error: {str(exc)}"
-#         }
-#     except httpx.HTTPStatusError as exc:
-#         return {
-#             "status": "error",
-#             "message": f"HTTP error {exc.response.status_code}: {exc.response.text}"
-#         }
-#     except Exception as e:
-#         return {
-#             "status": "error",
-#             "message": f"Unexpected error: {str(e)}"
-#         }
 
 
 
-@mcp.tool(
-    name="execute_code_from_file_or_directory",
-    description="Executes Python or Java code from a file or directory. Auto-selects file if only one is found."
-)
-async def execute_code_from_file_or_directory(path: str, language: str = "python", filename: str = None):
+
+# Synchronous function to read code if file path is given
+def read_code_input(payload: Optional[str], filepath: Optional[str], latest_generated: Optional[str]) -> str:
+    if payload:
+        return payload
+
+    if filepath and os.path.exists(filepath):
+        try:
+            with open(filepath, "r") as f:
+                return f.read()
+        except Exception as e:
+            return f"# Error reading file: {str(e)}"
+
+    if latest_generated:
+        return latest_generated
+
+    # Fallback
+    return 'print("Welcome to Nuvelink")'
+
+
+# ✅ Exposed async tool
+@mcp.tool(name="execute_code", description="Execute code in a secure sandbox environment.")
+async def execute_code(
+    payload: Optional[str] = None,
+    filepath: Optional[str] = None,
+    latest_generated: Optional[str] = None
+) -> str:
     """
-    Executes code from a file or picks from directory if only one file found.
-    Prompts user if multiple valid files are found.
+    Executes code in a secure sandbox.
+    Accepts:
+    - payload: code directly
+    - filepath: path to code file
+    - latest_generated: fallback prompt-generated code
     """
 
-    if not os.path.exists(path):
-        return {"status": "error", "message": f"Path not found: {path}"}
+    sample_code = read_code_input(payload, filepath, latest_generated)
 
-    # If it's a directory, handle accordingly
-    if os.path.isdir(path):
-        code_files = [f for f in os.listdir(path) if f.endswith(".py") or f.endswith(".java")]
-        
-        if not code_files:
-            return {"status": "error", "message": "No Python or Java files found in the directory."}
-        
-        # Auto-pick if only one file found
-        if len(code_files) == 1:
-            file_path = os.path.join(path, code_files[0])
-        else:
-            # Require user to specify which file
-            if not filename:
-                return {
-                    "status": "select_required",
-                    "message": f"Multiple code files found. Please specify the file to execute.",
-                    "available_files": code_files
-                }
-            file_path = os.path.join(path, filename)
+    host_id = await handle_code_execution(sample_code)
 
-        if not os.path.isfile(file_path):
-            return {"status": "error", "message": f"File not found in directory: {filename}"}
-    else:
-        # It's a direct file
-        file_path = path
-
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            code = f.read()
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to read file: {str(e)}"}
-
-    sandbox_urls = {
-        "python": "http://winpydy7730f.cloudloka.com:8000/run_python_code",
-        "java": "http://winpydy7730f.cloudloka.com:8000/run_java_code"
-    }
-
-    if language.lower() not in sandbox_urls:
-        return {"status": "error", "message": f"Unsupported language '{language}'."}
-
-    url = sandbox_urls[language.lower()]
-    headers = {"Content-Type": "application/json"}
-    payload = {"code": code}
-
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, headers=headers, json=payload)
-            response.raise_for_status()
-            result = response.json()
-
-        return {
-            "status": "success",
-            "language": language.lower(),
-            "executed_file": os.path.basename(file_path),
-            "message": "Code executed successfully.",
-            "result": result
-        }
-
-    except httpx.RequestError as exc:
-        return {"status": "error", "message": f"Request error: {str(exc)}"}
-    except httpx.HTTPStatusError as exc:
-        return {"status": "error", "message": f"HTTP error {exc.response.status_code}: {exc.response.text}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Unexpected error: {str(e)}"}
+    return await run_code_in_sandbox(host_id, sample_code)
 
 
 
 
-# @mcp.tool(
-#     name="execute_code_from_file",
-#     description="Reads code from a file and executes it in a remote sandbox (Python or Java)."
-# )
-# async def execute_code_from_file(file_path: str, language: str = "python"):
+# ✅ Exposed MCP tool
+# @mcp.tool(name="execute_code", description="Execute code in a secure sandbox environment.")
+# async def execute_code() -> str:
 #     """
-#     Reads the content of a code file and executes it remotely.
+#     Spins up a secure sandbox and executes the user's code in an isolated lab.
+    
+#     This tool is automatically triggered when a user asks to:
+#     - run code
+#     - execute a script
+#     - deploy and test something
+#     - start a lab environment
 
-#     Parameters:
-#     - file_path: str = Path to the code file (local path).
-#     - language: str = "python" or "java" (default: python)
-
-#     Returns:
-#     - JSON with execution result or error message.
+#     Supports multiple languages, and reuses user sessions.
 #     """
-#     # Validate file existence
-#     if not os.path.isfile(file_path):
-#         return {
-#             "status": "error",
-#             "message": f"File not found: {file_path}"
-#         }
+#     sample_code = 'print("Welcome to Nuvelink")'
+#     host_id = await handle_code_execution(sample_code)
+    
+#     return await run_code_in_sandbox(host_id, sample_code)
+ 
 
-#     try:
-#         with open(file_path, "r", encoding="utf-8") as f:
-#             code = f.read()
-#     except Exception as e:
-#         return {
-#             "status": "error",
-#             "message": f"Failed to read file: {str(e)}"
-#         }
 
-#     # Map language to endpoint
-#     sandbox_urls = {
-#         "python": "http://winpydy7730f.cloudloka.com:8000/run_python_code",
-#         "java": "http://winpydy7730f.cloudloka.com:8000/run_java_code"
-#     }
-
-#     if language.lower() not in sandbox_urls:
-#         return {
-#             "status": "error",
-#             "message": f"Unsupported language '{language}'. Please use 'python' or 'java'."
-#         }
-
-#     url = sandbox_urls[language.lower()]
-#     headers = {"Content-Type": "application/json"}
-#     payload = {"code": code}
-
-#     try:
-#         async with httpx.AsyncClient() as client:
-#             response = await client.post(url, headers=headers, json=payload)
-#             response.raise_for_status()
-#             result = response.json()
-
-#         return {
-#             "status": "success",
-#             "language": language.lower(),
-#             "message": "File code executed successfully.",
-#             "result": result
-#         }
-
-#     except httpx.RequestError as exc:
-#         return {
-#             "status": "error",
-#             "message": f"Request error: {str(exc)}"
-#         }
-#     except httpx.HTTPStatusError as exc:
-#         return {
-#             "status": "error",
-#             "message": f"HTTP error {exc.response.status_code}: {exc.response.text}"
-#         }
-#     except Exception as e:
-#         return {
-#             "status": "error",
-#             "message": f"Unexpected error: {str(e)}"
-#         }
-
+# ✅ Start the MCP server
 if __name__ == "__main__":
     asyncio.run(mcp.run())
