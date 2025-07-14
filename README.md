@@ -95,7 +95,7 @@ For Claude Desktop / Cursor, update your mcp_config.json:
   "mcpServers": {
     "CloudlabMcp": {
       "disabled": false,
-      "timeout": 60,
+      "timeout": 500,
       "type": "stdio",
       "command": "uv",
       "args": [
@@ -107,10 +107,7 @@ For Claude Desktop / Cursor, update your mcp_config.json:
       ],
       "env": {
         "API_KEY": "your_private_key",
-        "Baseurl": "your seed phrase here",
-		"planId": "56",
-        "companyId": "3",
-        "teamId": "57"
+        "Baseurl": "your seed phrase here"
       },
       "autoApprove": [*]
     }
@@ -137,15 +134,9 @@ get-address	Retrieves wallet address (optional usage)
 🧑‍🏫 Example Use in Claude
 User Prompt:
 
-plaintext
 
-Run this Python code in my lab environment:
-<pre>
-def greet(name): 
-return f"Hello, {name}"
 
-greet("Alice")
-</pre>
+
 Claude routes this to your MCP server and gets the result.
 
 💡 Recommendations for Lab Admins
