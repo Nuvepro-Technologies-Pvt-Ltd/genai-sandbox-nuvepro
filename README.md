@@ -56,6 +56,8 @@ scoop install uv
 </pre>
 
 
+
+
 cd McpSever_Remote_code_execution
 
 3. Set Up Virtual Environment
@@ -78,6 +80,10 @@ pip install fastmcp
 
 <pre>
 pip install cryptography
+</pre>
+
+<pre>
+pip install shelve
 </pre>
 
 5. Run the Server
