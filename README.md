@@ -113,7 +113,10 @@ For Claude Desktop / Cursor, update your mcp_config.json:
       ],
       "env": {
         "API_KEY": "your_private_key",
-        "Baseurl": "your seed phrase here"
+        "Baseurl": "your seed phrase here",
+        "planId": "56",
+        "companyId": "3",
+        "teamId": "57"
       },
       "autoApprove": [*]
     }
