@@ -27,6 +27,9 @@ mcp = FastMCP("CloudlabMcp")
 API_key = os.environ.get("API_KEY")
 BASE_URL = os.environ.get("Baseurl")
 SESSION_DB_PATH = os.path.join("data", "session_store")
+planId = os.environ.get("planId")
+companyId = os.environ.get("companyId")
+teamId = os.environ.get("teamId")
 
 # Simulated in-memory session store
 session_store = {}
@@ -163,10 +166,11 @@ async def _get_subscription_info(cookies, headers, sandbox: str):
             #     return {"error": "Missing required fields in subscription info response"}
 
     return {
-                "companyId": 13,
-                "teamId": 124,
-                "planId": 202
+                "companyId": companyId,
+                "teamId": planId,
+                "planId": planId
         }
+
 
         # except Exception as e:
         #     return {"error": f"Failed to get subscription info: {str(e)}"}
