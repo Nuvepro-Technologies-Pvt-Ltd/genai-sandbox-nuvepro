@@ -12,7 +12,6 @@ import re
 import shelve
 import uuid
 from typing import Optional
-import os
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -30,6 +29,7 @@ SESSION_DB_PATH = os.path.join("data", "session_store")
 planId = os.environ.get("planId")
 companyId = os.environ.get("companyId")
 teamId = os.environ.get("teamId")
+
 
 # Simulated in-memory session store
 session_store = {}
@@ -101,9 +101,14 @@ def generate_admin_email() -> str:
 def create_lab_sessionInfo() -> str:
     os.makedirs("data", exist_ok=True)
     with shelve.open(SESSION_DB_PATH) as session_store:
+        
+        # keys_to_delete = [key for key in session_store if "username" in session_store[key]]
+        # for key in keys_to_delete:
+        #   del session_store[key]
         # ✅ If any user is already stored, return their username
         if session_store:
             first_key = next(iter(session_store))
+            
             return session_store[first_key]["username"]
         
         # ❌ No users stored yet, create one
@@ -165,12 +170,12 @@ async def _get_subscription_info(cookies, headers, sandbox: str):
             # if not all(k in data for k in ("companyId", "teamId", "planId")):
             #     return {"error": "Missing required fields in subscription info response"}
 
+
     return {
                 "companyId": companyId,
-                "teamId": planId,
+                "teamId": teamId,
                 "planId": planId
         }
-
 
         # except Exception as e:
         #     return {"error": f"Failed to get subscription info: {str(e)}"}
@@ -249,6 +254,7 @@ async def _create_lab(username: str ,detected_lang:str) -> dict:
         return {"status": "failed", "error": "User creation failed or incomplete."}
     
     
+    
     # Step 4: Create lab (or handle "Lab already exists")
     
      #Step 3: Create or reuse lab
@@ -261,7 +267,6 @@ async def _create_lab(username: str ,detected_lang:str) -> dict:
     }
 
     subscription_id = None
-
     async with httpx.AsyncClient(verify=False) as client:
         try:
             response = await client.post(
@@ -271,7 +276,6 @@ async def _create_lab(username: str ,detected_lang:str) -> dict:
                 cookies=cookies
             )
             result = response.json()
-
             if result.get("MessageCode") == "1012":  # Lab already exists
                 subscription_ids = result.get("subscriptionIds", [])
                 if subscription_ids:
@@ -279,12 +283,12 @@ async def _create_lab(username: str ,detected_lang:str) -> dict:
                 else:
                     return {"status": "failed", "error": "Lab exists but no subscription ID found."}
             else:
-               subscription_id = result.get("subscriptionId")
+               subscription_id= result.get("subscriptionId")
                 
         except httpx.HTTPStatusError as e:
             return {"status": "failed", "error": f"HTTP error: {e.response.status_code} - {e.response.text}"}
         except Exception as e:
-            return {"status": "failed", "error": f"Unexpected error: {str(e)}"}
+           return {"status": "failed", "error": f"Unexpected error: {str(e)}"}
      
     
     
@@ -315,12 +319,11 @@ async def _create_lab(username: str ,detected_lang:str) -> dict:
         
 
 async def handle_code_execution(payload: str) -> str:
-    host_id = "3.6.150.49"
     username = create_lab_sessionInfo()
     detected_lang = detect_language(payload)
     user_access = await _create_lab(username, detected_lang)
-
-    return host_id     
+    return user_access
+    
 
 
 async def run_code_in_sandbox(host_id: str, code: str) -> dict:
@@ -396,12 +399,18 @@ async def execute_code(
     - filepath: path to code file
     - latest_generated: fallback prompt-generated code
     """
-
+    host_id=""
     sample_code = read_code_input(payload, filepath, latest_generated)
+    
+    user_access = await handle_code_execution(sample_code)
+    if "error" in user_access:
+        return f"Error: {user_access['error']}"
+    
+    user_access_list = json.loads(user_access['userAccess'])
 
-    host_id = await handle_code_execution(sample_code)
-
-    return await run_code_in_sandbox(host_id, sample_code)
+    # Extract the ServerIP
+    server_ip = next(item['value'] for item in user_access_list if item['key'] == 'ServerIP')
+    return await run_code_in_sandbox(server_ip, sample_code)
 
 
 
