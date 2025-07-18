@@ -172,9 +172,9 @@ async def _get_subscription_info(cookies, headers, sandbox: str):
 
 
     return {
-                "companyId": companyId,
-                "teamId": teamId,
-                "planId": planId
+                "companyId": str(companyId),
+                "teamId": str(teamId),
+                "planId": str(planId)
         }
 
         # except Exception as e:
@@ -253,11 +253,11 @@ async def _create_lab(username: str ,detected_lang:str) -> dict:
     if user_result is None or "status" not in user_result:
         return {"status": "failed", "error": "User creation failed or incomplete."}
     
+  
     
+    #Step 4: Create lab (or handle "Lab already exists")
     
-    # Step 4: Create lab (or handle "Lab already exists")
-    
-     #Step 3: Create or reuse lab
+    #Step 3: Create or reuse lab
     CREATE_LAB_URL = f"{BASE_URL}v1/subscriptions"
     payload = {
         "planId": planId,
@@ -337,11 +337,11 @@ async def run_code_in_sandbox(host_id: str, code: str) -> dict:
             response.raise_for_status()
             result = response.json()
         
-        return {
+        return json.dumps({
             "status": "success",
             "message": "Code executed successfully.",
             "result": result
-        }
+        })
 
     except httpx.RequestError as exc:
         return {
@@ -403,6 +403,7 @@ async def execute_code(
     sample_code = read_code_input(payload, filepath, latest_generated)
     
     user_access = await handle_code_execution(sample_code)
+    
     if "error" in user_access:
         return f"Error: {user_access['error']}"
     
@@ -410,6 +411,7 @@ async def execute_code(
 
     # Extract the ServerIP
     server_ip = next(item['value'] for item in user_access_list if item['key'] == 'ServerIP')
+    
     return await run_code_in_sandbox(server_ip, sample_code)
 
 
