@@ -1,0 +1,39 @@
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
+
+startCommand:
+  type: stdio
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => ({ command: 'python', args: ['app.py'], env: { API_KEY: config.API_KEY, Baseurl: config.Baseurl, planId: config.planId, companyId: config.companyId, teamId: config.teamId } })
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - API_KEY
+      - Baseurl
+      - planId
+      - companyId
+      - teamId
+    properties:
+      API_KEY:
+        type: string
+        description: Encrypted API key for authentication
+      Baseurl:
+        type: string
+        description: Base URL of the Cloudlab API, e.g., https://api.example.com/
+      planId:
+        type: string
+        description: Subscription plan ID
+      companyId:
+        type: string
+        description: Company ID for lab creation
+      teamId:
+        type: string
+        description: Team ID for lab creation
+  exampleConfig:
+    API_KEY: abc123salt.nonce.ciphertext
+    Baseurl: https://api.cloudlab.com/
+    planId: "56"
+    companyId: "3"
+    teamId: "57"
