@@ -26,9 +26,6 @@ mcp = FastMCP("CloudlabMcp")
 API_key = os.environ.get("API_KEY")
 BASE_URL = os.environ.get("Baseurl")
 SESSION_DB_PATH = os.path.join("data", "session_store")
-#planId = os.environ.get("planId")
-#companyId = os.environ.get("companyId")
-#teamId = os.environ.get("teamId")
 compnaykey = os.environ.get("compnaykey")
 
 
