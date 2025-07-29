@@ -26,9 +26,10 @@ mcp = FastMCP("CloudlabMcp")
 API_key = os.environ.get("API_KEY")
 BASE_URL = os.environ.get("Baseurl")
 SESSION_DB_PATH = os.path.join("data", "session_store")
-planId = os.environ.get("planId")
-companyId = os.environ.get("companyId")
-teamId = os.environ.get("teamId")
+#planId = os.environ.get("planId")
+#companyId = os.environ.get("companyId")
+#teamId = os.environ.get("teamId")
+compnaykey = os.environ.get("compnaykey")
 
 
 # Simulated in-memory session store
@@ -39,27 +40,26 @@ def generate_key(passphrase: str, salt: bytes) -> bytes:
         algorithm=hashes.SHA256(),
         length=32,
         salt=salt,
-        iterations=100_000,
+        iterations=100000,
         backend=default_backend()
     )
     return kdf.derive(passphrase.encode())
 
-def decrypt_from_api_key(api_key: str, passphrase: str):
+def decrypt_from_api_key(api_key: str, passphrase: str) -> dict:
     try:
-        salt_hex, nonce_hex, ciphertext_hex = api_key.split(".")
+        salt_hex, nonce_hex, ciphertext_hex = api_key.split('.')
         salt = bytes.fromhex(salt_hex)
         nonce = bytes.fromhex(nonce_hex)
         ciphertext = bytes.fromhex(ciphertext_hex)
 
         key = generate_key(passphrase, salt)
         aesgcm = AESGCM(key)
+        plaintext = aesgcm.decrypt(nonce, ciphertext, None)
 
-        decrypted = aesgcm.decrypt(nonce, ciphertext, None)
-        creds = json.loads(decrypted.decode())
-        return creds["username"], creds["password"]
+        return json.loads(plaintext.decode('utf-8'))
 
     except Exception as e:
-        return {"error": f"Decryption failed: {str(e)}"}
+        return {"error": str(e)}
 
 
 # ✅ Utility: Detect language from code string
@@ -124,12 +124,13 @@ async def _authenticate_cloudlab():
         "Content-Type": "application/x-www-form-urlencoded"
     }
     
-    decrypted =  decrypt_from_api_key(API_key, "MySuperSecretKey")
-    
-    if isinstance(decrypted, dict) and "error" in decrypted:
-        return decrypted  # Return error message
+    decrypted_payload = decrypt_from_api_key(API_key, "MySuperSecretKey")
 
-    USERNAME, PASSWORD = decrypted
+    if isinstance(decrypted_payload, dict) and "error" in decrypted_payload:
+      return decrypted_payload  # Return error message
+
+    USERNAME = decrypted_payload.get("USERNAME")
+    PASSWORD = decrypted_payload.get("PASSWORD")
 
     payload = {
         "username": USERNAME,
@@ -157,28 +158,26 @@ async def _authenticate_cloudlab():
 
 # ✅ Get subscription plan details based on sandbox (language)
 async def _get_subscription_info(cookies, headers, sandbox: str):
-    #url = "http://localhost:8081/nuvelink/rest/v1/nlSubscription/getVmCatalog/"
+    
+    # Handle decryption failure
+    decrypted_payload = decrypt_from_api_key(compnaykey, "MySuperSecretKey")
 
-    #payload = {'sandbox': sandbox}
+    if isinstance(decrypted_payload, dict) and "error" in decrypted_payload:
+      return decrypted_payload  # Return error message
 
-    #async with httpx.AsyncClient(verify=False) as client:
-     #   try:
-      #      response = await client.get(url)
-       #     response.raise_for_status()
-        #    data = response.json()
-
-            # if not all(k in data for k in ("companyId", "teamId", "planId")):
-            #     return {"error": "Missing required fields in subscription info response"}
-
-
+    planId = decrypted_payload.get("planId")
+    companyId = decrypted_payload.get("companyId")
+    teamId = decrypted_payload.get("teamId")
+    # Unpack decrypted values safely
+    
     return {
                 "companyId": str(companyId),
                 "teamId": str(teamId),
                 "planId": str(planId)
         }
+    
 
-        # except Exception as e:
-        #     return {"error": f"Failed to get subscription info: {str(e)}"}
+       
 
 # ✅ Updated user creation accepting team/company
 async def _createuser(cookies, headers, userEmailId: str, companyId: str, teamId: str):
@@ -201,7 +200,8 @@ async def _createuser(cookies, headers, userEmailId: str, companyId: str, teamId
             print("✅ User created successfully!")
             return {
                     "status": "created",
-                    "result": result
+                    "result": result,
+                    "userEmailId": userEmailId
                     }  
         except httpx.HTTPStatusError as e:
             print(f"🚨 HTTP error: {e.response.status_code} - {e.response.text}")
@@ -217,7 +217,7 @@ async def _createuser(cookies, headers, userEmailId: str, companyId: str, teamId
 async def _create_lab(username: str ,detected_lang:str) -> dict:
     
     auth_data = await _authenticate_cloudlab()
-
+    
     if "error" in auth_data:
         return {"status": "failed", "error": auth_data["error"]}
 
@@ -237,7 +237,7 @@ async def _create_lab(username: str ,detected_lang:str) -> dict:
 
     #✅ Get plan/team/company info for selected sandbox type
     subscription_info = await _get_subscription_info(cookies, headers, detected_lang)
-
+   
     if "error" in subscription_info:
         return {"status": "failed", "error": subscription_info["error"]}
 
@@ -248,12 +248,11 @@ async def _create_lab(username: str ,detected_lang:str) -> dict:
     if not all([companyId, teamId, planId]):
         return {"status": "failed", "error": "Missing required subscription info."} 
     
-     #✅ Create user (or detect existing)
+    #  #✅ Create user (or detect existing)
     user_result = await _createuser(cookies, headers, username, companyId, teamId)
     if user_result is None or "status" not in user_result:
         return {"status": "failed", "error": "User creation failed or incomplete."}
     
-  
     
     #Step 4: Create lab (or handle "Lab already exists")
     
@@ -403,39 +402,18 @@ async def execute_code(
     sample_code = read_code_input(payload, filepath, latest_generated)
     
     user_access = await handle_code_execution(sample_code)
-    
+
     if "error" in user_access:
         return f"Error: {user_access['error']}"
     
     user_access_list = json.loads(user_access['userAccess'])
 
-    # Extract the ServerIP
+    # # Extract the ServerIP
     server_ip = next(item['value'] for item in user_access_list if item['key'] == 'ServerIP')
     
     return await run_code_in_sandbox(server_ip, sample_code)
 
 
-
-
-# ✅ Exposed MCP tool
-# @mcp.tool(name="execute_code", description="Execute code in a secure sandbox environment.")
-# async def execute_code() -> str:
-#     """
-#     Spins up a secure sandbox and executes the user's code in an isolated lab.
-    
-#     This tool is automatically triggered when a user asks to:
-#     - run code
-#     - execute a script
-#     - deploy and test something
-#     - start a lab environment
-
-#     Supports multiple languages, and reuses user sessions.
-#     """
-#     sample_code = 'print("Welcome to Nuvelink")'
-#     host_id = await handle_code_execution(sample_code)
-    
-#     return await run_code_in_sandbox(host_id, sample_code)
- 
 
 
 # ✅ Start the MCP server
