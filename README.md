@@ -36,6 +36,15 @@ Ensure you have the following on your system:
 
 🧱 Installation Steps
 
+### Installing via Smithery
+
+To install nuvepro_sandbox for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@Nuvepro-Technologies-Pvt-Ltd/nuvepro_sandbox):
+
+```bash
+npx -y @smithery/cli install @Nuvepro-Technologies-Pvt-Ltd/nuvepro_sandbox --client claude
+```
+
+### Installing Manually
 1. Clone the MCP Server Repo
 <pre>
 git clone https://github.com/Nuvepro-Technologies-Pvt-Ltd/McpSever_Remote_code_execution.git
