@@ -1,0 +1,9 @@
+name: genai_sandbox
+version: 1.0.0
+description: Nuvepro GenAI Sandbox MCP server
+language: python
+entry: main.py
+build:
+  command: pip install -r requirements.txt
+start:
+  command: fastmcp run main.py
