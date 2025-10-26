@@ -1,0 +1,15 @@
+[project]
+name = "genai_sandbox"
+version = "0.1.0"
+description = "Nuvepro GenAI Sandbox MCP server"
+authors = [
+    { name = "Nuvepro Technologies Pvt Ltd", email = "info@nuvepro.com" }
+]
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "openai"
+]
+
+[tool.poetry.scripts]
+genai_sandbox = "main:app"
